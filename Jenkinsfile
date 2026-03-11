@@ -1,4 +1,27 @@
-stage('Bandit Security Scan') {
+pipeline {
+    agent any
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Setup Python Environment') {
+            steps {
+                bat '''
+                    echo Setting up Python environment...
+                    python -m venv venv
+                    call venv\\Scripts\\activate.bat
+                    python -m pip install --upgrade pip
+                    pip install bandit
+                    echo Python setup complete!
+                '''
+            }
+        }
+        
+        stage('Bandit Security Scan') {
     steps {
         bat '''
             @echo off
@@ -17,11 +40,27 @@ stage('Bandit Security Scan') {
                 echo ✅ No security issues found!
                 exit /b 0
             )
-        '''
+               '''
+            }
+            post {
+                always {
+                    echo 'Archiving Bandit reports...'
+                    archiveArtifacts artifacts: 'bandit_report.txt, bandit_report.json', allowEmptyArchive: true
+                }
+            }
+        }
     }
+    
     post {
         always {
-            archiveArtifacts artifacts: 'bandit_report.txt', allowEmptyArchive: true
+            echo 'Cleaning up workspace...'
+            cleanWs()
+        }
+        success {
+            echo '✅ Pipeline completed successfully - No security issues found!'
+        }
+        failure {
+            echo '❌ Pipeline failed - Security issues detected!'
         }
     }
 }
