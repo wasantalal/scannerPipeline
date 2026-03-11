@@ -14,15 +14,33 @@ pipeline {
             }
         }
         
-        stage('Setup Tools') {
+        stage('Setup Python Environment') {
             steps {
                 bat '''
                     echo Setting up Python environment...
                     python -m venv venv
                     call venv\\Scripts\\activate.bat
-                    python -m pip install --upgrade pip
                     pip install bandit
-                    
+                '''
+            }
+        }
+        
+        stage('Install Node.js and npm') {
+            steps {
+                bat '''
+                    echo Checking if Node.js is installed...
+                    node --version || (
+                        echo Installing Node.js via chocolatey...
+                        choco install nodejs -y
+                        refreshenv
+                    )
+                '''
+            }
+        }
+        
+        stage('Install cdxgen') {
+            steps {
+                bat '''
                     echo Installing cdxgen via npm...
                     npm install -g @cyclonedx/cdxgen
                 '''
