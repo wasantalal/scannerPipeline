@@ -1,12 +1,6 @@
 pipeline {
     agent any
     
-    environment {
-        // Define Docker image name and tag
-        DOCKER_IMAGE = 'phi2-app'
-        DOCKER_TAG = 'v1'
-    }
-    
     stages {
         stage('Checkout') {
             steps {
@@ -27,33 +21,49 @@ pipeline {
             }
         }
         
-        stage('Security Scan with Bandit') {
+        stage('Bandit Security Scan') {
             steps {
                 bat '''
                     echo Running Bandit security scan...
                     call venv\\Scripts\\activate.bat
-                    bandit -r . -f html -o bandit_report.html || (
-                        echo Bandit found issues but continuing...
-                        exit /b 0
+                    
+                    echo ========================================
+                    echo Running Bandit with severity filtering
+                    echo ========================================
+                    
+                    REM Run bandit and capture output
+                    bandit -r . -f txt -o bandit_report.txt
+                    
+                    REM Check for high severity issues
+                    echo Checking for HIGH severity issues...
+                    
+                    REM Use findstr to look for "HIGH" in the report
+                    findstr /C:"Severity: HIGH" bandit_report.txt >nul
+                    
+                    if !errorlevel! equ 0 (
+                        echo ========================================
+                        echo ❌ HIGH SEVERITY ISSUES FOUND!
+                        echo ========================================
+                        type bandit_report.txt | findstr /C:"Severity: HIGH" /C:">> Issue:"
+                        echo.
+                        echo Pipeline will FAIL due to high severity issues
+                        exit /b 1
+                    ) else (
+                        echo ========================================
+                        echo ✅ No high severity issues found!
+                        echo ========================================
+                        
+                        REM Show summary of other issues if any
+                        findstr /C:"Code scanned:" bandit_report.txt
+                        findstr /C:"Issues found:" bandit_report.txt
                     )
-                    echo Bandit scan complete!
                 '''
             }
             post {
                 always {
                     echo 'Archiving Bandit report...'
-                    archiveArtifacts artifacts: 'bandit_report.html', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'bandit_report.txt', allowEmptyArchive: true
                 }
-            }
-        }
-        
-        stage('Build Docker Image') {
-            steps {
-                bat '''
-                    echo Building Docker image...
-                    docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% .
-                    echo Docker build complete!
-                '''
             }
         }
     }
@@ -64,10 +74,10 @@ pipeline {
             cleanWs()
         }
         success {
-            echo 'Pipeline executed successfully!'
+            echo '✅ Pipeline completed successfully - No high severity issues found!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline failed - High severity security issues detected!'
         }
     }
 }
