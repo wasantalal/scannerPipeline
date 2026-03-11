@@ -14,13 +14,17 @@ pipeline {
             }
         }
         
-        stage('Setup Python Environment') {
+        stage('Setup Tools') {
             steps {
                 bat '''
+                    echo Setting up Python environment...
                     python -m venv venv
                     call venv\\Scripts\\activate.bat
                     python -m pip install --upgrade pip
-                    pip install bandit cdxgen
+                    pip install bandit
+                    
+                    echo Installing cdxgen via npm...
+                    npm install -g @cyclonedx/cdxgen
                 '''
             }
         }
@@ -42,7 +46,6 @@ pipeline {
         stage('Generate SBOM with cdxgen') {
             steps {
                 bat '''
-                    call venv\\Scripts\\activate.bat
                     cdxgen -o bom.xml
                     cdxgen -o bom.json
                 '''
