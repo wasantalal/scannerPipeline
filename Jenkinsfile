@@ -16,10 +16,10 @@ pipeline {
         
         stage('Setup Python Environment') {
             steps {
-                sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install --upgrade pip
+                bat '''
+                    python -m venv venv
+                    call venv\\Scripts\\activate.bat
+                    python -m pip install --upgrade pip
                     pip install bandit cdxgen
                 '''
             }
@@ -27,9 +27,9 @@ pipeline {
         
         stage('Security Scan with Bandit') {
             steps {
-                sh '''
-                    . venv/bin/activate
-                    bandit -r . -f html -o bandit_report.html || true
+                bat '''
+                    call venv\\Scripts\\activate.bat
+                    bandit -r . -f html -o bandit_report.html || exit 0
                 '''
             }
             post {
@@ -41,8 +41,8 @@ pipeline {
         
         stage('Generate SBOM with cdxgen') {
             steps {
-                sh '''
-                    . venv/bin/activate
+                bat '''
+                    call venv\\Scripts\\activate.bat
                     cdxgen -o bom.xml
                     cdxgen -o bom.json
                 '''
@@ -56,10 +56,7 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                script {
-                    // This is the correct docker.build syntax
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                }
+                bat "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
             }
         }
     }
