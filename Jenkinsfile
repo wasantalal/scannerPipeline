@@ -24,6 +24,7 @@ pipeline {
         stage('Bandit Security Scan') {
             steps {
                 bat '''
+                    @echo off
                     echo Running Bandit security scan...
                     call venv\\Scripts\\activate.bat
                     
@@ -37,14 +38,15 @@ pipeline {
                     REM Check for high severity issues
                     echo Checking for HIGH severity issues...
                     
-                    REM Use findstr to look for "HIGH" in the report
-                    findstr /C:"Severity: HIGH" bandit_report.txt >nul
+                    REM Use findstr to look for "HIGH" in the report and capture the result
+                    findstr /C:"Severity: HIGH" bandit_report.txt > high_severity.txt
                     
-                    if !errorlevel! equ 0 (
+                    REM Check if any high severity issues were found
+                    if %errorlevel% equ 0 (
                         echo ========================================
                         echo ❌ HIGH SEVERITY ISSUES FOUND!
                         echo ========================================
-                        type bandit_report.txt | findstr /C:"Severity: HIGH" /C:">> Issue:"
+                        type high_severity.txt
                         echo.
                         echo Pipeline will FAIL due to high severity issues
                         exit /b 1
@@ -53,16 +55,18 @@ pipeline {
                         echo ✅ No high severity issues found!
                         echo ========================================
                         
-                        REM Show summary of other issues if any
+                        REM Show summary of all issues
+                        echo Bandit scan complete. No high severity issues.
                         findstr /C:"Code scanned:" bandit_report.txt
                         findstr /C:"Issues found:" bandit_report.txt
+                        exit /b 0
                     )
                 '''
             }
             post {
                 always {
                     echo 'Archiving Bandit report...'
-                    archiveArtifacts artifacts: 'bandit_report.txt', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'bandit_report.txt, high_severity.txt', allowEmptyArchive: true
                 }
             }
         }
